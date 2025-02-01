@@ -2,6 +2,10 @@ from enum import Enum
 import time 
 import pandas as pd 
 import numpy as np
+import sys 
+import tkinter as tk
+from tkinter import ttk
+from frontend import ModelApp
 
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.linear_model import LinearRegression
@@ -29,8 +33,8 @@ class CustomModel:
     def __init__(self, df, modelType, x_features, y_feature):
         self.df = df
         self.modelType = modelType
-        self.x_features = x_features
-        self.y_feature = y_feature
+        self.X = self.df[x_features]
+        self.y = self.df[y_feature]
 
     def generatePreprocessor(self, scalerType=StandardScaler):
         numerical_pipeline = Pipeline([('Imputer', KNNImputer(n_neighbors=5)),
@@ -39,15 +43,15 @@ class CustomModel:
         categorical_pipeline = Pipeline([('Encoder', OrdinalEncoder()),
                                  ('Imputer', KNNImputer(n_neighbors=5))])
 
-        data_pipeline = ColumnTransformer([('numerical', numerical_pipeline, self.df.select_dtypes(exclude='object').columns),
-                                   ('categorical', categorical_pipeline, self.generateModeldf.select_dtypes(include='object').columns)])
+        data_pipeline = ColumnTransformer([('numerical', numerical_pipeline, self.X.select_dtypes(exclude='object').columns),
+                                   ('categorical', categorical_pipeline, self.X.select_dtypes(include='object').columns)])
 
         return data_pipeline
     
     def generateModel(self, preprocessor, modelType='linear'):
         if modelType == 'Linear':
             model = LinearRegression()
-            param_grid = {'model__fit_intercept': [True, False]}
+            param_grid = {'fit_intercept': [True, False]}
 
         elif modelType == 'Logistic':
             model = LogisticRegression()
@@ -56,12 +60,14 @@ class CustomModel:
 
         elif modelType == 'RandomForest':
             model = RandomForestRegressor()
-            param_grid = {'n_estimators': [50, 100, 200, 300],
-                          'max_features': ['auto', 'sqrt', 'log2'],
-                          'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
-                          'min_samples_split': [2, 5, 10],
-                          'min_samples_leaf': [1, 2, 4],
-                          'bootstrap': [True, False]}
+            param_grid = {
+                'n_estimators': [25, 50, 100],  
+                'max_features': ['auto', 'sqrt'], 
+                'max_depth': [5, 10, 20, None],  
+                'min_samples_split': [2, 5],  
+                'min_samples_leaf': [1, 2],  
+                'bootstrap': [True]  
+            }
             
         elif modelType == 'SVM':
             model = SVR()
@@ -69,7 +75,7 @@ class CustomModel:
                           'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
                           'kernel': ['rbf']}
 
-        elif model == 'DecisionTree':
+        elif modelType == 'DecisionTree':
             model = DecisionTreeClassifier()
             param_grid = {'criterion': ['gini', 'entropy'],
                           'splitter': ['best', 'random'],
@@ -80,21 +86,18 @@ class CustomModel:
         return GridSearchCV(model, param_grid, cv=5)
     
     def trainModel(self):
-        X = self.df[self.x_features]
-        y = self.df[self.y_feature]
         
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        X_train, X_test, y_train, y_test = train_test_split(self.X, self.y, test_size=0.2)
         
         preprocessor = self.generatePreprocessor()
         X_train_preprocessed = preprocessor.fit_transform(X_train)
+        X_test = preprocessor.transform(X_test)
         model = self.generateModel(preprocessor, modelType=self.modelType)
         
-        model.fit(X_train, y_train)
+        model.fit(X_train_preprocessed, y_train)
         print(f"Best Parameters: {model.best_params_}")
         
         return model, X_test, y_test
-        
-        
     
 def run():
     opModeIsActive = True
@@ -108,7 +111,8 @@ def run():
                 currentStep = Steps.READFILE
                 
             case "READFILE":
-                f = input("Input filename: ")
+                # f = input("Input filename: ")
+                f = "car_price_prediction.csv" # Testing
                 try:
                     df = pd.read_csv(f)
                     currentStep = Steps.DISPLAYFILES
@@ -125,11 +129,14 @@ def run():
                 currentStep = Steps.SETPROBLEM
     
             case "SETPROBLEM":
-                predictionType = input("Select ML Type: ")
+                # predictionType = input("Select ML Type: ")
+                predictionType = "RandomForest" # Testing
                 print(f"Available Features: {list(df.columns)}")
-                features = input("Select features: ").split(', ')
+                # features = input("Select features: ").split(', ')
+                features = ['Car ID', 'Brand', 'Year', 'Engine Size', 'Fuel Type', 'Transmission', 'Mileage', 'Condition', 'Model'] # Testing
                 print(f"\nAvailable Response Vars: {set(df.columns)-set(features)}")
-                response = input("Select response: ")
+                # response = input("Select response: ")
+                response = 'Price' # Testing
                 currentStep = Steps.INITMODEL
                 
             case "INITMODEL":
@@ -141,8 +148,7 @@ def run():
                 opModeIsActive = False
                 
 if __name__ == "__main__":
-    run()
-    
-    
-    
-    
+    root = tk.Tk()
+    app = ModelApp(root)
+    root.mainloop()
+
